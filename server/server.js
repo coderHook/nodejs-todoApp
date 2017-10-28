@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const {ObjectId} = require('mongodb');
+const {ObjectID} = require('mongodb');
 
 
 var {mongoose} = require('./db/mongoose.js');
@@ -38,8 +38,8 @@ app.get('/todos', (req, res) => {
 app.get('/todos/:id', (req, res) => {
   var id=req.params.id;
 
-  //Valid id using ObjectId
-  if(!ObjectId.isValid(id)) {
+  //Valid id using ObjectID
+  if(!ObjectID.isValid(id)) {
     return  res.status(404).send('Id is not Valid');
   };
 
@@ -52,6 +52,24 @@ app.get('/todos/:id', (req, res) => {
   }).catch((e) => {
     res.status(400).send();
   });
+});
+
+
+// Creating a delete route
+app.delete('/todos/:id', (req, res) => {
+  if (!ObjectID.isValid(req.params.id)) {
+    return console.log('Id not Valid')
+  };
+
+    //Let'd delete the id
+    Todo.findByIdAndRemove(req.params.id).then((todo) => {
+      if (!todo) {
+        return res.status(404).send('Not todo ID found.')
+      }
+      res.status(200).send(todo);
+    }).catch((e) => {
+      res.status(400).send();
+    });
 });
 
 
