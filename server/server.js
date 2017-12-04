@@ -1,13 +1,4 @@
-var env = process.env.NODE_ENV || 'development';
-console.log('env ***** ', env);
-
-if (env === 'development') {
-  process.env.PORT = 3000;
-  process.env.MONGODB_URI = 'mongodb://localhost:27017/TodoApp';
-} else if (env === 'test') {
-  process.env.PORT = 3000;
-  process.env.MONGODB_URI = 'mongodb://localhost:27017/TodoAppTest';
-}
+require('./config/config');
 
 const _ = require('lodash');
 const express = require('express');
@@ -26,9 +17,10 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
-app.post('/todos', (req, res) => {
+app.post('/todos', authenticate, (req, res) => {
   var todo = new Todo({
-    text: req.body.text
+    text: req.body.text,
+    _creator: req.user._id
   });
 
   todo.save().then((doc) => {
@@ -38,8 +30,8 @@ app.post('/todos', (req, res) => {
   })
 });
 
-app.get('/todos', (req, res) => {
-  Todo.find().then((todos) => {
+app.get('/todos', authenticate, (req, res) => {
+  Todo.find({_creator: req.user._id}).then((todos) => {
     res.send({
       todos
     })
@@ -49,7 +41,7 @@ app.get('/todos', (req, res) => {
 });
 
 // GET /todos/:id
-app.get('/todos/:id', (req, res) => {
+app.get('/todos/:id', authenticate, (req, res) => {
   var id=req.params.id;
 
   //Valid id using ObjectID
@@ -57,7 +49,10 @@ app.get('/todos/:id', (req, res) => {
     return  res.status(404).send('Id is not Valid');
   };
 
-  Todo.findById(id).then((todo) => {
+  Todo.findOne({
+    _id: id,
+    _creator: req.user._id
+  }).then((todo) => {
     if (!todo) {
       res.status(404).send();
     }
@@ -70,13 +65,16 @@ app.get('/todos/:id', (req, res) => {
 
 
 // Creating a delete route
-app.delete('/todos/:id', (req, res) => {
+app.delete('/todos/:id', authenticate, (req, res) => {
   if (!ObjectID.isValid(req.params.id)) {
     return console.log('Id not Valid')
   };
 
     //Let'd delete the id
-    Todo.findByIdAndRemove(req.params.id).then((todo) => {
+    Todo.findOneAndRemove({
+      _id: req.user._id,
+      _creator: req.user._id
+    }).then((todo) => {
       if (!todo) {
         return res.status(404).send();
       }
@@ -87,7 +85,7 @@ app.delete('/todos/:id', (req, res) => {
 });
 
 // PATCH route <allow to update todos>
-app.patch('/todos/:id', (req, res) => {
+app.patch('/todos/:id', authenticate, (req, res) => {
   var id = req.params.id;
   var body = _.pick(req.body, ['text', 'completed']); // pick method takes and object and am array of properties we want to pull of, here just the 2 that we want to update by the user
 
@@ -102,7 +100,7 @@ app.patch('/todos/:id', (req, res) => {
     body.completedAt = null;
   };
 
-  Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
+  Todo.findOneAndUpdate({_id: id, _creator: req.params._id}, {$set: body}, {new: true}).then((todo) => {
     if(!todo) {
       return res.status(404).send();
     };
